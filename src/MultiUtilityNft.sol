@@ -109,7 +109,6 @@ contract MultiUtilityNft is ERC721, Ownable, EIP712 {
 
     // Phase1: Free mint for whitelisted users.
     function mintPhase1(bytes32[] calldata merkleProof) external {
-        if (block.timestamp >= mintEnd) revert MintingPeriodOver();
         if (block.timestamp > phase1End) revert InvalidPhase();
         _phase1Validate(merkleProof);
         uint256 tokenId = _nextTokenId++;
@@ -119,7 +118,6 @@ contract MultiUtilityNft is ERC721, Ownable, EIP712 {
 
     // Phase2: Discounted mint with fee.
     function mintPhase2(bytes32[] calldata merkleProof, uint8 v, bytes32 r, bytes32 s) external {
-        if (block.timestamp >= mintEnd) revert MintingPeriodOver();
         if (block.timestamp <= phase1End || block.timestamp > phase2End) revert InvalidPhase();
         _phase2Validate(merkleProof, v, r, s);
         uint256 tokenId = _nextTokenId++;
