@@ -1,66 +1,101 @@
-## Foundry
+# MultiUtilityNFT
 
-**Foundry is a blazing fast, portable and modular toolkit for Ethereum application development written in Rust.**
+MultiUtilityNFT is a smart contract that implements a multi-phase NFT minting process. It features whitelisting using Merkle Trees, discounted minting with EIP712 signatures, and a vesting mechanism integrated with Sablier.
 
-Foundry consists of:
+---
 
--   **Forge**: Ethereum testing framework (like Truffle, Hardhat and DappTools).
--   **Cast**: Swiss army knife for interacting with EVM smart contracts, sending transactions and getting chain data.
--   **Anvil**: Local Ethereum node, akin to Ganache, Hardhat Network.
--   **Chisel**: Fast, utilitarian, and verbose solidity REPL.
+## Table of Contents
 
-## Documentation
+- [Installation](#installation)
+- [Usage](#usage)
+- [Notes](#notes)
 
-https://book.getfoundry.sh/
+---
+
+## Installation
+
+### 1. Install Foundry
+
+Install Foundry by running:
+
+```bash
+curl -L https://foundry.paradigm.xyz | bash
+```
+
+### 2. Clone the Repository
+
+Clone the repository and navigate into the project directory:
+
+```bash
+git clone <repo-url>
+cd <repo-name>
+```
+
+### 3. Install Dependencies
+
+Install the project dependencies using Forge:
+
+```bash
+forge install
+```
+
+---
 
 ## Usage
 
-### Build
+### Running Tests
 
-```shell
-$ forge build
+Execute the complete test suite with:
+
+```bash
+forge test
 ```
 
-### Test
+### Generating Code Coverage
 
-```shell
-$ forge test
+Generate a code coverage report by running:
+
+```bash
+forge coverage
 ```
 
-### Format
+---
 
-```shell
-$ forge fmt
-```
+## Notes
 
-### Gas Snapshots
+Thank you for the opportunity to work on this task. Here are some important design considerations and decisions made during development:
 
-```shell
-$ forge snapshot
-```
+- **Test Coverage:**  
+  - Test cases follow the Branching tree technique (BTT)  to cover all requirements.
+  - Achieved 100% test coverage for the contracts.
 
-### Anvil
+- **Documentation:**  
+  - The NFT contract is well-documented using NatSpec comments for better clarity.
 
-```shell
-$ anvil
-```
+- **OpenZeppelin Contracts:**  
+  - Instead of using the main branch, tagged releases of OpenZeppelin contracts are utilized for improved stability.
+  - The project employs the latest version (5.2.0) to ensure the best security updates and improvements.
 
-### Deploy
+- **Solidity Version:**  
+  - Solidity 0.8.26 is chosen for its robustness and battle-tested nature compared to newer releases.
 
-```shell
-$ forge script script/Counter.s.sol:CounterScript --rpc-url <your_rpc_url> --private-key <your_private_key>
-```
+- **Security Checks:**  
+  - Tools like **wake** and **slither** are used for thorough security analysis.
 
-### Cast
+- **Gas Optimization:**  
+  - The contract adopts the checks-effects-interactions pattern, omitting the Reentrancy Guard to avoid unnecessary gas costs.
 
-```shell
-$ cast <subcommand>
-```
+- **Signature and Replay Protection:**  
+  - Implements nonces and EIP712 for secure signature validation and replay protection.
+  - Uses separate `v, r, s` signatures (instead of compact signatures) to mitigate signature malleability issues, as noted in previous vulnerabilities ([OpenZeppelin advisory](https://github.com/advisories/GHSA-4h98-2769-gh6h)).
 
-### Help
+- **Merkle Tree Security:**  
+  - Employs a double-hashing method for Merkle leaves to prevent second preimage attacks and to maintain compatibility with OpenZeppelin’s Merkle Tree implementation—even though the data (addresses) is only 20 bytes long.
 
-```shell
-$ forge --help
-$ anvil --help
-$ cast --help
-```
+- **Safe Token Transfers:**  
+  - Utilizes OpenZeppelin’s SafeERC20 to securely handle token transfers, accounting for tokens that may not revert on failure.
+
+- **Vesting Integration:**  
+  - Vesting functionality is validated by forking the mainnet and simulating vesting scenarios using mainnet addresses and contracts.
+
+---
