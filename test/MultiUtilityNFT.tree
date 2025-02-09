@@ -1,0 +1,70 @@
+MultiUtilityNft Tests
+├── Constructor Tests
+│   ├── Deploys with Valid Parameters
+│   │   └── Ensures immutables (phase1End, phase2End, mintEnd, merkle roots, pricing, tokens) are set correctly.
+│   ├── Reverts When phase2End ≤ phase1End
+│   │   └── Expects error: InvalidPhaseOrder
+│   └── Reverts When mintEnd ≤ phase2End
+│       └── Expects error: InvalidPhase
+├── getCurrentMintPhase Tests
+│   ├── When block.timestamp ≤ phase1End
+│   │   └── Returns: FreeMint
+│   ├── When phase1End < block.timestamp ≤ phase2End
+│   │   └── Returns: DiscountMint
+│   ├── When phase2End < block.timestamp < mintEnd
+│   │   └── Returns: FullMint
+│   └── When block.timestamp ≥ mintEnd
+│       └── Returns: MintOver
+├── mintPhase1 Tests
+│   ├── Succeeds for Valid Free Mint
+│   │   ├── Uses a valid merkle proof (for merkleRootPhase1)
+│   │   ├── Mints a token and emits Minted(minter, tokenId, FreeMint)
+│   │   └── Marks the sender as having claimed the free mint
+│   ├── Reverts if Already Claimed Free Mint
+│   │   └── Expects error: AlreadyClaimedFreeMint
+│   ├── Reverts with Invalid Merkle Proof
+│   │   └── Expects error: NotWhitelisted
+│   └── Reverts if Called After phase1End
+│       └── Expects error: InvalidPhase
+├── mintPhase2 Tests
+│   ├── Succeeds for Valid Discount Mint
+│   │   ├── Called with block.timestamp in (phase1End, phase2End]
+│   │   ├── Uses a valid merkle proof (for merkleRootPhase2)
+│   │   ├── Uses a valid discount signature (owner-signed for the sender and nonce)
+│   │   ├── Transfers discountPrice from caller
+│   │   ├── Mints a token and emits Minted(minter, tokenId, DiscountMint)
+│   │   └── Marks the sender as having claimed the discount mint
+│   ├── Reverts if Called Outside Phase2 Window
+│   │   └── Expects error: InvalidPhase
+│   ├── Reverts if Already Claimed Discount Mint
+│   │   └── Expects error: AlreadyClaimedDiscountMint
+│   ├── Reverts with Invalid Merkle Proof
+│   │   └── Expects error: NotEligibleForDiscountMint
+│   └── Reverts with Invalid Discount Signature
+│       └── Expects error: InvalidDiscountSignature
+├── mintPhase3 Tests
+│   ├── Succeeds for Valid Full Mint
+│   │   ├── Called with block.timestamp > phase2End and < mintEnd
+│   │   ├── Transfers fullPrice from caller
+│   │   ├── Mints a token and emits Minted(minter, tokenId, FullMint)
+│   │   └── Increments the next token ID correctly
+│   ├── Reverts if Called Too Early (≤ phase2End)
+│   │   └── Expects error: InvalidPhase
+│   └── Reverts if Called After mintEnd
+│       └── Expects error: MintingPeriodOver
+├── lockFundsLinearlyOnSablierFor356Days Tests
+│   ├── Succeeds When Called by Owner After mintEnd
+│   │   ├── Increases allowance for sablierLockup by the contract’s paymentToken balance
+│   │   ├── Calls sablierLockup.createWithDurationsLL and emits SablierStreamCreated(streamId, balance)
+│   │   └── Can be used to verify integration with vesting (stream parameters: vesting duration, unlock amounts, etc.)
+│   ├── Reverts if Called Before mintEnd
+│   │   └── Expects error: MintingPeriodNotOver
+│   └── Reverts if Called by a Non-Owner
+│       └── Expects error from Ownable (caller is not the owner)
+└── Getter Function Tests
+    ├── getNextTokenId
+    │   └── Returns the correct next token ID after various mints
+    ├── isFreeMintClaimed
+    │   └── Returns true after a successful free mint; false otherwise
+    └── isDiscountMintClaimed
+        └── Returns true after a successful discount mint; false otherwise
