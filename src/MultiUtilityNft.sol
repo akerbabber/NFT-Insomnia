@@ -1,14 +1,18 @@
 // SPDX-License-Identifier: MIT
 // Compatible with OpenZeppelin Contracts ^5.0.0
-pragma solidity ^0.8.22;
+pragma solidity ^0.8.26;
 
-import {ERC721} from "@openzeppelin/contracts/token/ERC721/ERC721.sol";
-import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
-import {ECDSA} from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
-import {MerkleProof} from "@openzeppelin/contracts/utils/cryptography/MerkleProof.sol";
-import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import {EIP712} from "@openzeppelin/contracts/utils/cryptography/EIP712.sol";
-import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import {ERC721} from "openzeppelin-contracts/contracts/token/ERC721/ERC721.sol";
+import {Ownable} from "openzeppelin-contracts/contracts/access/Ownable.sol";
+import {ECDSA} from "openzeppelin-contracts/contracts/utils/cryptography/ECDSA.sol";
+import {MerkleProof} from "openzeppelin-contracts/contracts/utils/cryptography/MerkleProof.sol";
+import {IERC20} from "openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
+import {EIP712} from "openzeppelin-contracts/contracts/utils/cryptography/EIP712.sol";
+import {SafeERC20} from "openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
+import {IERC20} from "openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
+import {ud60x18} from "prb-math/UD60x18.sol";
+import {ISablierLockup} from "v2-core/interfaces/ISablierLockup.sol";
+import {Broker, Lockup, LockupLinear, IERC20 as IERC20Sablier} from "v2-core/types/DataTypes.sol";
 
 // Custom errors
 error NotWhitelisted();
@@ -46,8 +50,8 @@ contract MultiUtilityNft is ERC721, Ownable, EIP712 {
 
     // Payment token (ERC20) and Sablier vesting integration
     IERC20 public immutable paymentToken;
-    address public immutable sablier;
-    uint256 public immutable vestingDuration = 365 days; // Using 256 bits for duration since it is immutable
+    ISablierLockup public immutable sablierLockup;
+    uint40 public constant VESTING_DURATION = 365 days; // Using 256 bits for duration since it is immutable
 
     // New state: mintEnd timestamp after which minting stops.
     uint256 public immutable mintEnd;
@@ -62,6 +66,7 @@ contract MultiUtilityNft is ERC721, Ownable, EIP712 {
 
     // Update event: now using the MintPhase enum.
     event Minted(address indexed minter, uint256 tokenId, MintPhase phase);
+    event SablierStreamCreated(uint256 streamId, uint256 amount);
 
     // Updated type hash including nonce
     bytes32 public constant DISCOUNT_MINT_TYPEHASH = keccak256("DiscountMint(address minter,uint256 nonce)");
@@ -69,7 +74,7 @@ contract MultiUtilityNft is ERC721, Ownable, EIP712 {
     constructor(
         address initialOwner,
         IERC20 _paymentToken,
-        address _sablier,
+        address _sablierLockup,
         bytes32 _merkleRootPhase1,
         bytes32 _merkleRootPhase2,
         uint256 _discountPrice,
@@ -81,7 +86,7 @@ contract MultiUtilityNft is ERC721, Ownable, EIP712 {
         if (_phase2End <= _phase1End) revert InvalidPhaseOrder();
         if (_mintEnd <= _phase2End) revert InvalidPhase();
         paymentToken = _paymentToken;
-        sablier = _sablier;
+        sablierLockup = ISablierLockup(_sablierLockup);
         merkleRootPhase1 = _merkleRootPhase1;
         merkleRootPhase2 = _merkleRootPhase2;
         discountPrice = _discountPrice;
@@ -157,10 +162,24 @@ contract MultiUtilityNft is ERC721, Ownable, EIP712 {
     }
 
     // New function: After mintEnd, owner can transfer funds to sablier.
-    function transferFundsToSablier() external onlyOwner {
+    function lockFundsLinearlyOnSablierFor356Days() external onlyOwner {
         if (block.timestamp < mintEnd) revert MintingPeriodNotOver();
         uint256 balance = paymentToken.balanceOf(address(this));
-        paymentToken.safeTransfer(sablier, balance);
+        Lockup.CreateWithDurations memory params = Lockup.CreateWithDurations({
+            sender: owner(),
+            recipient: owner(),
+            totalAmount: uint128(balance),
+            token: IERC20Sablier(address(paymentToken)),
+            cancelable: false,
+            transferable: true,
+            shape: "Linear Stream",
+            broker: Broker(address(0), ud60x18(0))
+        });
+        LockupLinear.UnlockAmounts memory unlockAmounts = LockupLinear.UnlockAmounts({start: 0, cliff: 0});
+        LockupLinear.Durations memory durations = LockupLinear.Durations({cliff: 0, total: uint40(VESTING_DURATION)});
+        paymentToken.safeIncreaseAllowance(address(sablierLockup), balance);
+        uint256 streamId = sablierLockup.createWithDurationsLL(params, unlockAmounts, durations);
+        emit SablierStreamCreated(streamId, balance);
     }
 
     // Getter for the next token ID to be minted

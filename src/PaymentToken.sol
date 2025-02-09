@@ -7,4 +7,9 @@ import {ERC20Permit} from "@openzeppelin/contracts/token/ERC20/extensions/ERC20P
 
 contract PaymentToken is ERC20, ERC20Permit {
     constructor() ERC20("PaymentToken", "PTK") ERC20Permit("PaymentToken") {}
+
+    // Anyone can mint tokens for testing purposes
+    function mint(address to, uint256 amount) external {
+        _mint(to, amount);
+    }
 }
